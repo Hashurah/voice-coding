@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' blob: data:; font-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voice Coding Companion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Voice Coding Companion</div>
+      <label class="agent-select">
+        <span class="sr-only">Agent</span>
+        <select id="agent" aria-label="Coding agent">
+          <option value="demo">Demo agent</option>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex</option>
+        </select>
+      </label>
+      <span id="conn" class="pill" role="status" aria-live="polite"><span class="dot"></span><span class="label">Checking…</span></span>
+      <button id="folder" class="ghost" title="Project folder the agent works in">Choose folder…</button>
+      <span id="privacy" class="pill privacy" title="Where your audio is processed">Audio: on-device</span>
+      <div class="spacer"></div>
+      <button id="newConv" class="ghost" title="Start a new conversation">New</button>
+      <button id="settingsBtn" class="ghost" aria-haspopup="dialog">Settings</button>
+    </header>
+
+    <main class="layout">
+      <section class="conversation" aria-label="Conversation">
+        <div id="log" class="log" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <div id="question" class="question" hidden role="alertdialog" aria-live="assertive">
+          <p class="q-text"></p>
+          <div class="q-options"></div>
+        </div>
+      </section>
+      <aside class="side" aria-label="Tasks">
+        <h2>Tasks</h2>
+        <ol id="tasks" class="tasks"></ol>
+        <h2>Shortcuts</h2>
+        <dl class="keys">
+          <dt><kbd>Space</kbd> (hold)</dt><dd>Push to talk</dd>
+          <dt><kbd>Ctrl</kbd>+<kbd>M</kbd></dt><dd>Continuous listening</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Stop speaking / discard voice input</dd>
+          <dt><kbd>A</kbd> / <kbd>D</kbd></dt><dd>Approve / deny request</dd>
+          <dt><kbd>Ctrl</kbd>+<kbd>.</kbd></dt><dd>Cancel running task</dd>
+          <dt><kbd>/</kbd></dt><dd>Focus text input</dd>
+        </dl>
+      </aside>
+    </main>
+
+    <footer class="composer">
+      <div class="states">
+        <span id="voiceState" class="pill state" role="status" aria-live="polite">Voice: idle</span>
+        <span id="agentState" class="pill state" role="status" aria-live="polite">Agent: idle</span>
+      </div>
+      <div id="live" class="live" aria-live="polite"></div>
+      <div class="row">
+        <button id="mic" class="mic" aria-pressed="false" title="Hold to talk (or hold Space)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
+          <span class="sr-only">Microphone</span>
+        </button>
+        <textarea id="input" rows="1" placeholder="Speak, or type an instruction and press Enter" aria-label="Instruction"></textarea>
+        <button id="send" class="primary">Send</button>
+      </div>
+      <div class="audio">
+        <button id="stopSpeech" class="ghost" disabled>Stop speaking</button>
+        <label><input type="checkbox" id="speak" checked /> Speak replies</label>
+        <label>Speed <input type="range" id="rate" min="0.7" max="1.5" step="0.05" /></label>
+        <label>Volume <input type="range" id="volume" min="0" max="1" step="0.05" /></label>
+        <label><input type="checkbox" id="continuous" /> Continuous listening</label>
+      </div>
+    </footer>
+
+    <dialog id="settings" aria-labelledby="settingsTitle">
+      <form method="dialog" class="settings-form">
+        <h2 id="settingsTitle">Settings</h2>
+        <fieldset>
+          <legend>Speech recognition</legend>
+          <label><input type="radio" name="stt" value="local" /> On this computer. Audio stays on this device.</label>
+          <label>Recogniser <select id="sttModel"><option value="moonshine-base">Moonshine base (fast)</option><option value="whisper-base">Whisper base</option><option value="whisper-tiny">Whisper tiny</option></select></label>
+          <label><input type="radio" name="stt" value="openai" /> OpenAI (cloud). <strong>Audio is sent to OpenAI</strong> and billed to your key.</label>
+        </fieldset>
+        <fieldset>
+          <legend>Voice</legend>
+          <label><input type="radio" name="tts" value="kokoro" /> Natural voice on this computer (Kokoro)</label>
+          <label><input type="radio" name="tts" value="system" /> Windows voices (no download)</label>
+          <label><input type="radio" name="tts" value="openai" /> OpenAI voices (cloud). <strong>Text is sent to OpenAI</strong> and billed to your key.</label>
+          <label>Voice <select id="voice"></select></label>
+          <label>Style
+            <select id="style">
+              <option value="brief">Brief</option>
+              <option value="normal">Normal</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Turn-taking</legend>
+          <label>End of turn after silence (ms) <input type="number" id="endOfTurnMs" min="500" max="5000" step="100" /></label>
+          <label>Extra wait after "um", "and…" (ms) <input type="number" id="hesitationExtraMs" min="0" max="5000" step="100" /></label>
+          <label>Review time before sending (ms) <input type="number" id="reviewWindowMs" min="0" max="10000" step="250" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Safety</legend>
+          <label><input type="checkbox" id="voiceApprovals" /> Allow approving agent actions by voice (off: click or keyboard only)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Cloud key (optional)</legend>
+          <p class="hint" id="keyStatus"></p>
+          <label>OpenAI API key <input type="password" id="openaiKey" autocomplete="off" placeholder="sk-…" /></label>
+          <button type="button" id="saveKey">Save key securely</button>
+          <button type="button" id="clearKey" class="ghost">Remove key</button>
+        </fieldset>
+        <fieldset>
+          <legend>Agents</legend>
+          <div id="healthList" class="health"></div>
+          <button type="button" id="recheck" class="ghost">Recheck</button>
+          <button type="button" id="runSetup" class="ghost">Run setup again</button>
+        </fieldset>
+        <menu><button value="close" class="primary">Done</button></menu>
+      </form>
+    </dialog>
+
+    <dialog id="wizard" aria-labelledby="wizardTitle"></dialog>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

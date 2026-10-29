@@ -1,0 +1,107 @@
+{
+  "name": "voice-coding-companion",
+  "version": "0.1.0",
+  "description": "Voice-first desktop companion for Claude Code and Codex that keeps the full written coding conversation.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hashurah/voice-coding.git"
+  },
+  "homepage": "https://github.com/Hashurah/voice-coding#readme",
+  "bugs": {
+    "url": "https://github.com/Hashurah/voice-coding/issues"
+  },
+  "private": true,
+  "main": "dist/main/main.mjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "test:e2e:live": "npm run build && node scripts/live-e2e.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "models": "node scripts/models.mjs",
+    "bench": "node scripts/bench-stt.mjs",
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.312",
+    "@huggingface/transformers": "4.3.2",
+    "@ricky0123/vad-web": "0.0.31",
+    "kokoro-js": "1.2.1",
+    "onnxruntime-web": "1.31.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.6",
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "kokoro-js": {
+      "@huggingface/transformers": "$@huggingface/transformers"
+    }
+  },
+  "productName": "Voice Coding Companion",
+  "author": "Teslim",
+  "keywords": [
+    "voice",
+    "claude-code",
+    "codex",
+    "coding-agent",
+    "speech",
+    "electron"
+  ],
+  "build": {
+    "appId": "dev.voicecodingcompanion.app",
+    "productName": "Voice Coding Companion",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**",
+      "node_modules/kokoro-js/voices/**",
+      "node_modules/@anthropic-ai/claude-agent-sdk/**"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Voice Coding Companion listens for your spoken instructions. Speech is processed on this computer unless you choose a cloud provider."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
+  }
+}
