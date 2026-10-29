@@ -39,7 +39,7 @@ jobs:
       - run: npx playwright test tests/e2e/demo.spec.ts tests/e2e/wizard.spec.ts tests/e2e/no-models.spec.ts
       - name: Keep test results for diagnosis
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-results
           path: test-results/

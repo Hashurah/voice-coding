@@ -5,5 +5,6 @@ export default defineConfig({
   timeout: 180_000,
   expect: { timeout: 60_000 },
   workers: 1,
-  reporter: [['list']],
+  // On GitHub Actions, failures also become annotations that are readable without signing in.
+  reporter: process.env.GITHUB_ACTIONS ? [['github'], ['list']] : [['list']],
 });
