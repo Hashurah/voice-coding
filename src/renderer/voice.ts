@@ -40,12 +40,34 @@ function micErrorMessage(err: unknown): string {
     case 'NotFoundError':
     case 'OverconstrainedError':
       return 'No microphone was found. Plug one in and try again, or type instead.';
+    case 'TimeoutError':
+      return `The audio system isn't responding: ${e.message.charAt(0).toLowerCase()}${e.message.slice(1)}. You can keep typing meanwhile.`;
     case 'NotReadableError':
     case 'AbortError':
       return 'The microphone is busy or failed to start (another app may be using it). Try again, or type instead.';
     default:
       return `The microphone could not start: ${e?.message ?? String(err)}`;
   }
+}
+
+/** Audio setup can stall on machines without working sound hardware; never wait forever. */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(Object.assign(new Error(`${what} did not respond within ${ms / 1000}s. Check that an audio input device is connected and working`), { name: 'TimeoutError' })),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
 }
 
 function rms(a: Float32Array): number {
@@ -158,7 +180,11 @@ export function createVoice(deps: VoiceDeps): VoiceController {
     setState('starting');
     starting = (async () => {
       try {
-        const v = await MicVAD.new({
+        // Ask for the microphone first: it's quick and gives a precise error
+        // (refused, no device, busy) before any audio processing is set up.
+        const probe = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 15_000, 'the microphone');
+        probe.getTracks().forEach((t) => t.stop());
+        const v = await withTimeout(MicVAD.new({
           model: 'v5',
           baseAssetPath: 'app://ui/vendor/vad/',
           onnxWASMBasePath: 'app://ui/vendor/ort-vad/',
@@ -194,7 +220,7 @@ export function createVoice(deps: VoiceDeps): VoiceController {
                 turn.segmentText(seq, null);
               });
           },
-        });
+        }), 30_000, 'Voice detection');
         errored = false;
         vad = v;
         return v;
@@ -213,7 +239,7 @@ export function createVoice(deps: VoiceDeps): VoiceController {
   /** Opening the microphone happens here (not when the VAD loads), so permission errors surface here. */
   async function startVad(v: MicVAD): Promise<boolean> {
     try {
-      await v.start();
+      await withTimeout(v.start(), 15_000, 'the microphone');
       if (v.errored) throw new Error(v.errored);
     } catch (err) {
       errored = true;
