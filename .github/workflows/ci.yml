@@ -13,8 +13,8 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -27,11 +27,20 @@ jobs:
     # The demo-agent end-to-end tests need no agent and no speech models.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npx playwright test tests/e2e/demo.spec.ts
+      # No speech models or agent CLIs on the runner: this covers the demo flow,
+      # the setup wizard and the "no speech model" path.
+      - run: npx playwright test tests/e2e/demo.spec.ts tests/e2e/wizard.spec.ts tests/e2e/no-models.spec.ts
+      - name: Keep test results for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 14

@@ -83,7 +83,9 @@ test('reports a denied microphone and keeps typing available', async () => {
   l = await launch({ env: { VCC_DENY_MIC: '1' } });
   const { page } = l;
   await page.locator('#mic').dispatchEvent('pointerdown');
-  await expect(page.locator('.msg.system.error')).toContainText(/Microphone access was refused|microphone could not start/i);
+  await expect(page.locator('.msg.system.error', { hasText: /Microphone access was refused|microphone could not start/i })).toHaveCount(1);
+  // With the mic refused, the app shouldn't also nag about speech models.
+  await expect(page.locator('.msg.system.error', { hasText: /speech model/i })).toHaveCount(0);
   await expect(page.locator('#voiceState')).toContainText('unavailable');
   await send(page, 'Is the app still usable?');
   await expect(page.locator('.msg.agent').last()).toBeVisible();

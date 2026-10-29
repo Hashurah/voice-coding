@@ -117,6 +117,7 @@ export function createVoice(deps: VoiceDeps): VoiceController {
   let mode: 'ptt' | 'continuous' | 'off' = 'off';
   let state: VoiceState = 'idle';
   let errored = false;
+  let sttWarned = false;
 
   const setState = (s: VoiceState) => {
     state = s;
@@ -157,8 +158,6 @@ export function createVoice(deps: VoiceDeps): VoiceController {
     setState('starting');
     starting = (async () => {
       try {
-        // Load the recogniser alongside the microphone so the first turn isn't slow.
-        stt.load().catch((e) => deps.onError(`Speech recognition is unavailable: ${(e as Error).message}`));
         const v = await MicVAD.new({
           model: 'v5',
           baseAssetPath: 'app://ui/vendor/vad/',
@@ -216,7 +215,6 @@ export function createVoice(deps: VoiceDeps): VoiceController {
     try {
       await v.start();
       if (v.errored) throw new Error(v.errored);
-      return true;
     } catch (err) {
       errored = true;
       setState('error');
@@ -224,6 +222,15 @@ export function createVoice(deps: VoiceDeps): VoiceController {
       turn.discard('');
       return false;
     }
+    // Only once the microphone works is it worth reporting on the recogniser.
+    // Loading it now, while the user starts talking, keeps the first turn fast.
+    if (!sttWarned) {
+      stt.load().catch((e) => {
+        sttWarned = true;
+        deps.onError(`Speech recognition is unavailable: ${(e as Error).message}`);
+      });
+    }
+    return true;
   }
 
   const controller: VoiceController = {
